@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>بُن وهيل — لوحة التحكم</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#3B2416">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%233B2416'/%3E%3Cpath d='M28 40h40l-4 30a6 6 0 0 1-6 5H38a6 6 0 0 1-6-5Z' fill='%23F6EEE2'/%3E%3Cpath d='M68 46h4a7 7 0 0 1 0 14h-6' fill='none' stroke='%23F6EEE2' stroke-width='5'/%3E%3Cpath d='M34 54h28' stroke='%23D9822B' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --forest: #3B2416; --cream: #F6EEE2; --gold: #D9822B; --coffee: #6B3F22; --olive: #D9822B; --ink: #3B2416; --muted: #8a7462; --line: #e6d9c6; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--cream); color: var(--ink); font: 400 16px/1.5 'Tajawal', system-ui, sans-serif; }
+  :focus-visible { outline: 2px solid var(--olive); outline-offset: 2px; }
+  header { background: var(--forest); color: var(--cream); padding: 16px; position: sticky; top: 0; z-index: 3; }
+  header .in { max-width: 640px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  header img { width: 42px; height: 42px; border-radius: 50%; }
+  header h1 { font: 700 19px/1.2 'Tajawal', sans-serif; margin: 0; flex: 1; }
+  header h1 small { display: block; font: 400 13px 'Tajawal', sans-serif; opacity: .7; }
+  header a { color: var(--forest); background: var(--gold); text-decoration: none; font-weight: 600; font-size: 14px; padding: 8px 14px; border-radius: 10px; }
+  main { max-width: 640px; margin: 0 auto; padding: 8px 16px 100px; }
+  .hint { background: #fff8e6; border: 1px solid #ecd9a4; border-radius: 12px; padding: 12px 14px; font-size: 14px; margin: 14px 0 6px; }
+  h2 { font: 700 20px 'Tajawal', sans-serif; margin: 28px 0 8px; }
+  .row { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 6px; }
+  .row.changed { border-color: var(--gold); box-shadow: inset 4px 0 0 var(--gold); }
+  .row.sold { opacity: .6; }
+  .row .nm { flex: 1; font-weight: 500; }
+  .row .nm small { display: block; color: var(--muted); font-size: 12px; font-weight: 400; }
+  .row input[type=number] { width: 84px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; font: 600 16px 'Tajawal', sans-serif; text-align: center; }
+  .sw { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; white-space: nowrap; }
+  .sw input { width: 18px; height: 18px; accent-color: var(--coffee); }
+  .bar { position: fixed; bottom: 0; inset-inline: 0; background: #fff; border-top: 1px solid var(--line); padding: 12px 16px; }
+  .bar .in { max-width: 640px; margin: 0 auto; display: flex; gap: 10px; align-items: center; }
+  .bar span { flex: 1; font-size: 14px; color: var(--muted); }
+  .bar button { border: 1px solid var(--line); background: none; padding: 10px 14px; border-radius: 10px; font: 500 14px 'Tajawal', sans-serif; cursor: pointer; }
+  .toast { position: fixed; top: 84px; left: 50%; transform: translateX(-50%); background: var(--forest); color: var(--cream); padding: 8px 18px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.on { opacity: 1; }
+</style>
+</head>
+<body>
+<header><div class="in">
+  <h1>لوحة التحكم<small>بُن وهيل · عدّل الأسعار والأصناف</small></h1>
+  <a href="index.html">افتح المنيو</a>
+</div></header>
+<main>
+  <p class="hint">غيّر أي سعر أو علّم على صنف إنه خلص، والتعديل يظهر في المنيو فوراً. مفيش طباعة منيو جديد.<br><small>نموذج عرض: التعديلات بتتحفظ على الجهاز ده بس.</small></p>
+  <div id="list"></div>
+</main>
+<div class="bar"><div class="in">
+  <span id="count"></span>
+  <button type="button" id="reset">رجّع الأسعار الأصلية</button>
+</div></div>
+<div class="toast" id="toast" role="status">تم الحفظ</div>
+
+<script src="data.js"></script>
+<script>
+  const KEY = 'bunn-overrides';
+  let o = {};
+  try { o = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
+
+  const list = document.getElementById('list');
+  list.innerHTML = MENU.categories.map(c => `
+    <h2>${c.ar}</h2>
+    ${c.items.map(i => `
+      <div class="row" data-id="${i.id}">
+        <span class="nm">${i.ar}<small>${i.en}</small></span>
+        <label class="sw"><input type="checkbox" data-k="soldOut" ${i.soldOut ? 'checked' : ''}>خلص</label>
+        <input type="number" inputmode="numeric" min="0" step="5" data-k="price" value="${i.price}" data-base="${i.basePrice}" aria-label="سعر ${i.ar}">
+      </div>`).join('')}`).join('');
+
+  let t;
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {}
+    const el = document.getElementById('toast');
+    el.classList.add('on'); clearTimeout(t); t = setTimeout(() => el.classList.remove('on'), 1200);
+    paint();
+  }
+  function paint() {
+    let n = 0;
+    document.querySelectorAll('.row').forEach(r => {
+      const v = o[r.dataset.id] || {};
+      const changed = v.price != null || v.soldOut;
+      r.classList.toggle('changed', !!changed);
+      r.classList.toggle('sold', !!v.soldOut);
+      if (changed) n++;
+    });
+    document.getElementById('count').textContent = n ? `${n.toLocaleString('ar-EG')} صنف متعدّل` : 'كل الأسعار زي المنيو الأصلي';
+  }
+
+  list.addEventListener('change', e => {
+    const r = e.target.closest('.row'); if (!r) return;
+    const id = r.dataset.id, v = o[id] || {};
+    if (e.target.dataset.k === 'price') {
+      const p = Math.max(0, Math.round(+e.target.value || 0));
+      e.target.value = p;
+      if (p === +e.target.dataset.base) delete v.price; else v.price = p;
+    } else {
+      if (e.target.checked) v.soldOut = true; else delete v.soldOut;
+    }
+    if (Object.keys(v).length) o[id] = v; else delete o[id];
+    save();
+  });
+
+  document.getElementById('reset').onclick = () => {
+    o = {};
+    document.querySelectorAll('.row').forEach(r => {
+      const inp = r.querySelector('[data-k=price]'); inp.value = inp.dataset.base;
+      r.querySelector('[data-k=soldOut]').checked = false;
+    });
+    save();
+  };
+  paint();
+</script>
+</body>
+</html>
